@@ -2,7 +2,7 @@ Scrap is a Rails Metal endpoint designed to expose various garbage and memory-re
 
 To use it, simply install the plugin. This will provide a new url, <code>/stats/scrap</code>, which will report a number of metrics about your app.
 
-h2. Config
+## Config
 
 If present, Scrap will use a config/scrap.yml file. See the provided example file for a list of the configuration options accepted.
 
@@ -14,6 +14,6 @@ If present, Scrap will use a config/scrap.yml file. See the provided example fil
 ** small: boolean - if false, will not print counts in h3 tags. Default is true.
 ** min: integer - minimum count, if set, that an object must have to appear in the delta or top objects list. Default is nil.
   
-h2. Other considerations
+## Other considerations
 
 Scrap will take advantage of many of the wonderful metrics provided by recent versions of Ruby Enterprise Edition. It will work with other versions of Ruby, but you'll get a lot more info out of it if you're running REE 1.8.6-20090201 or later.
