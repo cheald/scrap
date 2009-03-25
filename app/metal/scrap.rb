@@ -1,6 +1,7 @@
 class Scrap < Rails::Rack::Metal	
 	PATH = "/stats/scrap".freeze
 	COMMIFY_REGEX = /(\d)(?=(\d\d\d)+(?!\d))/
+	CRLF = "\r\n"
 	
 	@@gc_stats = {}
 	@@last_gc_run = nil
@@ -29,7 +30,7 @@ class Scrap < Rails::Rack::Metal
 	  @@last_gc_run ||= @@alive_at ||= Time.now.to_f
 	  @@last_gc_mem ||= get_usage
 	  
-	  req = sprintf("[%-10.2fMB] %s %s", get_usage, env["REQUEST_METHOD"], env["PATH_INFO"])
+	  req = sprintf("<p>[%-10.2fMB] %s %s</p>", get_usage, env["REQUEST_METHOD"], env["PATH_INFO"])
 	  req << "<pre>#{ObjectSpace.statistics}</pre>" if ObjectSpace.respond_to? :statistics
 	  @@request_list.unshift req	  
 	  @@request_list.pop if @@request_list.length > (config["max_requests"] || 150)
@@ -56,41 +57,45 @@ class Scrap < Rails::Rack::Metal
 		
 		mem_delta = usage - @@last_gc_mem
 		time_delta = Time.now.to_f - @@last_gc_run		
+		s = ''
+		s << '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN"' << CRLF
+		s << '   "http://www.w3.org/TR/html4/strict.dtd">' << CRLF
+		s << '<html><head>' << CRLF
+		s << "<title>[#{$$}] Garbage Report</title>" << CRLF
+		s << '<style type="text/css"> body { font-family: monospace; color: #222; } td { border-bottom: 1px solid #eee; padding: 1px 9px; } td.t { background: #fafafa; } tr:hover td { background: #fafaf0; border-color: #e0e0dd; } h1,h2,h3 { border-bottom: 1px solid #ddd; font-family: sans-serif; } </style>' << CRLF
+		s << '<body>' << CRLF
 		
-		s = "<title>[#{$$}] Garbage Report</title>"
-		s << "<style> body { font-family: monospace; color: #222; } td { border-bottom: 1px solid #eee; padding: 1px 9px; } td.t { background: #fafafa; } tr:hover td { background: #fafaf0; border-color: #e0e0dd; } h1,h2,h3 { border-bottom: 1px solid #ddd; font-family: sans-serif; } </style>"
+		s << "<h1>Scrap - PID #{$$}</h1>" << CRLF
 		
-		s << "<h1>Scrap - PID #{$$}</h1>"
-		
-		s << "<table>"
-		s << sprintf("<tr><td class='t'>Memory usage:</td><td>%2.2fMB</td></tr>", usage)
-		s << sprintf("<tr><td class='t'>Delta:</td><td>%2.2fMB</td></tr>", mem_delta)
-		s << sprintf("<tr><td class='t'>Last Scrap req:</td><td>%2.2f seconds ago</td></tr>", time_delta)
-		s << sprintf("<tr><td class='t'>Requests processed:</td><td>%s</td></tr>", @@requests_processed)
-		s << sprintf("<tr><td class='t'>Alive for:</td><td>%2.2f seconds</td></tr>", Time.now.to_f - @@alive_at)
+		s << '<table>' << CRLF
+		s << sprintf('<tr><td class="t">Memory usage:</td><td>%2.2fMB</td></tr>', usage)
+		s << sprintf('<tr><td class="t">Delta:</td><td>%2.2fMB</td></tr>', mem_delta)
+		s << sprintf('<tr><td class="t">Last Scrap req:</td><td>%2.2f seconds ago</td></tr>', time_delta)
+		s << sprintf('<tr><td class="t">Requests processed:</td><td>%s</td></tr>', @@requests_processed)
+		s << sprintf('<tr><td class="t">Alive for:</td><td>%2.2f seconds</td></tr>', Time.now.to_f - @@alive_at)
 		if GC.respond_to? :time then
-			s << sprintf("<tr><td class='t'>Time spent in GC:</td><td>%2.2f seconds</td></tr>", GC.time / 1000000.0)
+			s << sprintf('<tr><td class="t">Time spent in GC:</td><td>%2.2f seconds</td></tr>', GC.time / 1000000.0)
 		end
 		if collected
-			s << sprintf("<tr><td class='t'>Collected objects:</td><td>%2d</td></tr>", collected)
-			s << sprintf("<tr><td class='t'>Live objects:</td><td>%2d</td></tr>", ObjectSpace.live_objects)
+			s << sprintf('<tr><td class="t">Collected objects:</td><td>%2d</td></tr>', collected)
+			s << sprintf('<tr><td class="t">Live objects:</td><td>%2d</td></tr>', ObjectSpace.live_objects)
 		end
-		s << "</table>"
+		s << '</table>' << CRLF
 
 		s << "<h3>Top #{config["max_objects"]} deltas since last request</h3>"
-		s << "<table border='0'>"
+		s << '<table border="0">'
 		memcheck(config["max_objects"], Object, :deltas).each do |v|
 			next if v.last == 0
 			s << "<tr><td class='t'>#{v.first}</td><td>#{sprintf("%s%s", v.last >= 0 ? "+" : "-", commify(v.last))}</td></tr>"
 		end
-		s << "</table>"
+		s << '</table>'
 
 		s << "<h3>Top #{config["max_objects"]} objects</h3>"
-		s << "<table border='0'>"
+		s << '<table border="0">'
 		memcheck(config["max_objects"]).each do |v|
 			s << "<tr><td class='t'>#{v.first}</td><td>#{commify v.last}</td></tr>"
 		end
-		s << "</table>"
+		s << '</table>'
 		
 		(config["classes"] || {}).each do |klass, val|
 			puts val.inspect
@@ -98,11 +103,11 @@ class Scrap < Rails::Rack::Metal
 			add_os(klass.constantize, s, opts)
 		end
 		
-		s << "<h3>Request history</h3>"
+		s << '<h3>Request history</h3>'
 		@@request_list.each do |req|
 			s << req
-			s << "<br />"
 		end
+		s << '</body></html>'
 		
 		@@last_gc_run = Time.now.to_f
 		@@last_gc_mem = usage
@@ -135,23 +140,24 @@ class Scrap < Rails::Rack::Metal
 			s << "<h3>#{c} (#{ct})</h3>"
 		end
 		
-		return if !print_objects
-		s << "<table>"
+		return if !print_objects or ct == 0
+		s << CRLF
+		s << '<table>'
 		val = ObjectSpace.each_object(c) do |m|
-			s << "<tr><td class='t'>" << "&lt;#{m.class.to_s}:#{sprintf("0x%.8x", m.object_id)}&gt;</td>"
+			s << '<tr><td class="t">' << "&lt;#{m.class.to_s}:#{sprintf("0x%.8x", m.object_id)}&gt;</td>"
 			if show_fields then
 				show_fields.each do |field|
 					v = m.attributes[field.to_s]
 					if v.blank?
-						s << "<td>&nbsp;</td>"
+						s << '<td>&nbsp;</td>'
 					else
 						s << "<td>#{field}: #{v}</td>"
 					end
 				end	
 			end
-			s << "</tr>"
+			s << '</tr>'
 		end
-		s << "</table>"
+		s << '</table>' << CRLF
 	end
 	
 	def self.memcheck(top, klass = Object, mode = :normal)
