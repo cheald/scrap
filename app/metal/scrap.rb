@@ -57,7 +57,7 @@ class Scrap < Rails::Rack::Metal
 		
 		mem_delta = usage - @@last_gc_mem
 		time_delta = Time.now.to_f - @@last_gc_run		
-		s = ''
+		s = []
 		s << '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN"' << CRLF
 		s << '   "http://www.w3.org/TR/html4/strict.dtd">' << CRLF
 		s << '<html><head>' << CRLF
